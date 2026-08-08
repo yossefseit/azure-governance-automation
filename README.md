@@ -7,10 +7,11 @@ guarded Bash/PowerShell operations. It turns six governance concerns into
 reviewable code: resource organization, tags, location policy, cost alerts,
 least-privilege access, and deletion protection.
 
-> **Evidence boundary:** the templates are authored, locally linted, and
-> compiled with Bicep CLI 0.46.1. Offline guard tests pass. No authenticated ARM
-> validation, what-if, deployment, policy evaluation, notification delivery,
-> remediation run, cost observation, or teardown has been performed. This lab
+> **Evidence boundary:** the templates are authored, locally linted and compiled
+> with Bicep CLI 0.46.1, and CI validated on public `main`. Offline guard tests
+> pass. No authenticated ARM validation, what-if, deployment, policy evaluation,
+> notification delivery, remediation run, cost observation, or teardown has
+> been performed. This lab
 > is not a full enterprise landing zone.
 
 ## What this baseline produces
@@ -46,12 +47,12 @@ The editable source is [architecture/architecture.mmd](architecture/architecture
 
 | Capability | Authored | Locally validated | CI validated | Azure validated | Runtime tested | Teardown tested |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Subscription-scope Bicep | Yes | Linted and compiled | Pending first workflow run | Pending | Not applicable | Pending |
-| Custom policies and initiative | Yes | Static tests and compile | Pending first workflow run | Pending | Pending policy evaluation | Pending |
-| Conditional identity and remediation design | Yes | Static tests and compile | Pending first workflow run | Pending | Pending; inheritance and remediation disabled by default | Pending |
-| Budget and action-group wiring | Yes | Static tests and compile | Pending first workflow run | Pending | Pending notification test | Pending |
-| Optional group Reader RBAC | Yes | Static tests and compile | Pending first workflow run | Pending | Pending access test | Pending |
-| Lock and cleanup automation | Yes | Failure guards tested offline | Pending first workflow run | Pending | Pending | Pending live teardown |
+| Subscription-scope Bicep | Yes | Linted and compiled | Passed on public main | Pending | Not applicable | Pending |
+| Custom policies and initiative | Yes | Static tests and compile | Passed on public main | Pending | Pending policy evaluation | Pending |
+| Conditional identity and remediation design | Yes | Static tests and compile | Passed on public main | Pending | Pending; inheritance and remediation disabled by default | Pending |
+| Budget and action-group wiring | Yes | Static tests and compile | Passed on public main | Pending | Pending notification test | Pending |
+| Optional group Reader RBAC | Yes | Static tests and compile | Passed on public main | Pending | Pending access test | Pending |
+| Lock and cleanup automation | Yes | Failure guards tested offline | Passed on public main | Pending | Pending | Pending live teardown |
 
 `Locally validated` means the checks named in [testing](docs/testing.md); it does
 not mean the Azure Resource Manager service accepted or executed the template.

@@ -28,9 +28,10 @@ Do not collapse one level into another in the README matrix.
 | Bash syntax/static analysis | `bash -n` and ShellCheck clean | Passed locally with ShellCheck 0.11.0 |
 | PowerShell parse/static analysis | Parser and PSScriptAnalyzer clean | Passed locally with PowerShell 7.5.0 and PSScriptAnalyzer 1.25.0 |
 | Guard behavior | Wrong context/confirmation/ownership, malformed/extra inventory, descendant RBAC, and non-404 errors stop safely; partial and successful mocks follow exact order | Passed locally for Bash and PowerShell with the mock Azure CLI |
+| GitHub Actions | Repeat offline checks, documentation/link validation, and secret scanning on the public commit | Passed on public `main` |
 
-GitHub Actions remains pending until the repository is published and the exact
-public commit completes its first workflow run.
+The CI badge links to the current public workflow history. A green workflow is
+repository and compile evidence only; it is not authenticated Azure validation.
 
 ## Azure validation cases
 

@@ -320,7 +320,7 @@ def test_readme_truth_boundary() -> None:
         "not a full enterprise landing zone",
         "No authenticated ARM",
         "does **not** stop or approve spending",
-        "Pending first workflow run",
+        "Passed on public main",
         "Pending live teardown",
     ]
     missing = [phrase for phrase in required_phrases if phrase not in readme]
