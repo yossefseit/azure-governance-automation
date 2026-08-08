@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -n ${MOCK_AZ_LOG:-} ]]; then
+  printf '%s\n' "$*" >>"${MOCK_AZ_LOG}"
+fi
+
+state_directory="${MOCK_AZ_STATE_DIR:-}"
+deleted_ids_file=''
+if [[ -n ${state_directory} ]]; then
+  mkdir -p -- "${state_directory}"
+  deleted_ids_file="${state_directory}/deleted-ids"
+  touch "${deleted_ids_file}"
+fi
+
+lowercase() {
+  tr '[:upper:]' '[:lower:]'
+}
+
+resource_is_deleted() {
+  local resource_id="$1"
+  [[ -n ${deleted_ids_file} && -s ${deleted_ids_file} ]] || return 1
+  grep -Fqx -- "$(printf '%s' "${resource_id}" | lowercase)" "${deleted_ids_file}"
+}
+
+resource_is_configured_absent() {
+  local resource_id="$1"
+  local absent_json="${MOCK_ABSENT_RESOURCE_IDS_JSON:-[]}"
+  jq -e --arg id "${resource_id,,}" '
+    type == "array" and any(.[]; type == "string" and ascii_downcase == $id)
+  ' <<<"${absent_json}" >/dev/null 2>&1
+}
+
+record_deleted_resource() {
+  local resource_id="$1"
+  [[ -n ${deleted_ids_file} ]] || return 0
+  printf '%s\n' "$(printf '%s' "${resource_id}" | lowercase)" >>"${deleted_ids_file}"
+}
+
+environment_value_or_default() {
+  local variable_name="$1"
+  local default_value="$2"
+  if [[ -v ${variable_name} ]]; then
+    printf '%s' "${!variable_name}"
+  else
+    printf '%s' "${default_value}"
+  fi
+}
+
+inventory_json() {
+  local initial_variable="$1"
+  local final_variable="$2"
+  local shape="$3"
+  local value
+  local deleted_json
+
+  value="$(environment_value_or_default "${initial_variable}" '[]')"
+  if [[ -n ${deleted_ids_file} && -s ${deleted_ids_file} && -v ${final_variable} ]]; then
+    value="${!final_variable}"
+  fi
+
+  if [[ -n ${deleted_ids_file} && -s ${deleted_ids_file} ]] && jq -e 'type == "array"' <<<"${value}" >/dev/null 2>&1; then
+    deleted_json="$(jq -Rsc 'split("\n") | map(select(length > 0))' "${deleted_ids_file}")"
+    if [[ ${shape} == strings ]]; then
+      value="$(jq -c --argjson deleted "${deleted_json}" '
+        map(select(type != "string" or (ascii_downcase as $id | ($deleted | index($id)) == null)))
+      ' <<<"${value}")"
+    elif [[ ${shape} == roles ]]; then
+      value="$(jq -c --argjson deleted "${deleted_json}" '
+        map(select(
+          type != "object" or
+          (.id | type != "string") or
+          ((.id | ascii_downcase) as $id | ($deleted | index($id)) == null)
+        ))
+      ' <<<"${value}")"
+    fi
+  fi
+  printf '%s\n' "${value}"
+}
+
+fail_inventory_if_requested() {
+  local kind="$1"
+  if [[ ${MOCK_INVENTORY_FAILURE:-} == "${kind}" ]]; then
+    printf 'Simulated %s inventory failure.\n' "${kind}" >&2
+    exit 42
+  fi
+}
+
+if [[ ${1:-} == account && ${2:-} == show ]]; then
+  printf '%s\n' "${MOCK_SUBSCRIPTION_ID:?MOCK_SUBSCRIPTION_ID is required}"
+elif [[ ${1:-} == deployment && ${2:-} == sub && ${3:-} == validate ]]; then
+  printf '%s\n' '{}'
+elif [[ ${1:-} == deployment && ${2:-} == sub && ${3:-} == what-if ]]; then
+  printf '%s\n' 'Mock full resource payload what-if'
+elif [[ ${1:-} == deployment && ${2:-} == sub && ${3:-} == show ]]; then
+  if [[ ${MOCK_DEPLOYMENT_SHOW_FAILURE:-false} == true ]]; then
+    printf '%s\n' 'Simulated deployment inventory failure.' >&2
+    exit 42
+  fi
+  printf '%s\n' "${MOCK_MANIFEST_JSON:?MOCK_MANIFEST_JSON is required}"
+elif [[ ${1:-} == deployment && ${2:-} == sub && ${3:-} == delete ]]; then
+  printf '%s\n' '{}'
+elif [[ ${1:-} == deployment && ${2:-} == group && ${3:-} == list ]]; then
+  fail_inventory_if_requested deployment
+  inventory_json MOCK_GROUP_DEPLOYMENTS_JSON MOCK_FINAL_GROUP_DEPLOYMENTS_JSON strings
+elif [[ ${1:-} == resource && ${2:-} == list ]]; then
+  fail_inventory_if_requested resource
+  inventory_json MOCK_DIRECT_RESOURCES_JSON MOCK_FINAL_DIRECT_RESOURCES_JSON strings
+elif [[ ${1:-} == lock && ${2:-} == list ]]; then
+  fail_inventory_if_requested lock
+  inventory_json MOCK_LOCKS_JSON MOCK_FINAL_LOCKS_JSON strings
+elif [[ ${1:-} == role && ${2:-} == assignment && ${3:-} == list ]]; then
+  fail_inventory_if_requested role
+  if [[ " $* " == *" --scope ${MOCK_ACTION_GROUP_ID:-__unset__} "* ]]; then
+    inventory_json MOCK_ACTION_GROUP_ROLE_ASSIGNMENTS_JSON MOCK_FINAL_ACTION_GROUP_ROLE_ASSIGNMENTS_JSON roles
+  else
+    inventory_json MOCK_ROLE_ASSIGNMENTS_JSON MOCK_FINAL_ROLE_ASSIGNMENTS_JSON roles
+  fi
+elif [[ ${1:-} == group && ${2:-} == exists ]]; then
+  if [[ ${MOCK_GROUP_EXISTS_FAILURE:-false} == true ]]; then
+    printf '%s\n' 'Simulated resource-group existence query failure.' >&2
+    exit 42
+  fi
+  printf '%s\n' "${MOCK_GROUP_EXISTS_OUTPUT:-true}"
+elif [[ ${1:-} == group && ${2:-} == show ]]; then
+  if [[ ${MOCK_GROUP_SHOW_FAILURE:-false} == true ]]; then
+    printf '%s\n' 'Simulated resource-group inventory failure.' >&2
+    exit 42
+  fi
+  if [[ -n ${deleted_ids_file} && -s ${deleted_ids_file} && -v MOCK_FINAL_RESOURCE_GROUP_JSON ]]; then
+    printf '%s\n' "${MOCK_FINAL_RESOURCE_GROUP_JSON}"
+  else
+    printf '%s\n' "${MOCK_RESOURCE_GROUP_JSON:?MOCK_RESOURCE_GROUP_JSON is required}"
+  fi
+elif [[ ${1:-} == group && (${2:-} == delete || ${2:-} == wait) ]]; then
+  printf '%s\n' '{}'
+elif [[ ${1:-} == rest ]]; then
+  method=''
+  output=''
+  url=''
+  shift
+  while (($# > 0)); do
+    case "$1" in
+      --method) method="${2:-}"; shift 2 ;;
+      --output) output="${2:-}"; shift 2 ;;
+      --url) url="${2:-}"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  resource_id="${url%%\?*}"
+  if [[ ${method} == get ]]; then
+    if resource_is_deleted "${resource_id}" || resource_is_configured_absent "${resource_id}"; then
+      printf '%s\n' '404 ResourceNotFound' >&2
+      exit 3
+    fi
+    case "${MOCK_REST_GET_MODE:-exists}" in
+      error)
+        printf '%s\n' 'Simulated resource inventory authorization failure.' >&2
+        exit 42
+        ;;
+      error-with-incidental-404)
+        printf '%s\n' '403 Forbidden while reading object trace-404-marker.' >&2
+        exit 42
+        ;;
+      notfound)
+        printf '%s\n' '404 ResourceNotFound' >&2
+        exit 3
+        ;;
+      exists) ;;
+      *)
+        printf 'Unexpected MOCK_REST_GET_MODE: %s\n' "${MOCK_REST_GET_MODE}" >&2
+        exit 89
+        ;;
+    esac
+
+    if [[ ${output} == json && ${resource_id,,} == "${MOCK_REMEDIATION_ROLE_ID,,}" ]]; then
+      printf '%s\n' "${MOCK_REMEDIATION_ROLE_JSON:?MOCK_REMEDIATION_ROLE_JSON is required}"
+    elif [[ ${output} == json && ${resource_id,,} == "${MOCK_REVIEWER_ROLE_ID,,}" ]]; then
+      printf '%s\n' "${MOCK_REVIEWER_ROLE_JSON:?MOCK_REVIEWER_ROLE_JSON is required}"
+    elif [[ ${output} == json ]]; then
+      printf '%s\n' '{}'
+    fi
+  elif [[ ${method} == delete ]]; then
+    record_deleted_resource "${resource_id}"
+    printf '%s\n' '{}'
+  else
+    printf 'Unexpected mock Azure REST method: %s\n' "${method}" >&2
+    exit 89
+  fi
+elif [[ ${1:-} == bicep ]]; then
+  printf '%s\n' 'Mock Bicep command accepted after the real test runner compiled the templates.'
+else
+  printf 'Unexpected mock Azure CLI call: %s\n' "$*" >&2
+  exit 88
+fi

@@ -1,0 +1,32 @@
+{
+  "artifactType": "candidate-custom-role-action-list",
+  "status": "design-only-not-assigned-or-azure-validated",
+  "scope": "one personally owned lab subscription",
+  "actions": [
+    "Microsoft.Resources/deployments/*",
+    "Microsoft.Resources/subscriptions/resourceGroups/read",
+    "Microsoft.Resources/subscriptions/resourceGroups/resources/read",
+    "Microsoft.Resources/subscriptions/resourceGroups/write",
+    "Microsoft.Resources/subscriptions/resourceGroups/delete",
+    "Microsoft.Insights/actionGroups/read",
+    "Microsoft.Insights/actionGroups/write",
+    "Microsoft.Insights/actionGroups/delete",
+    "Microsoft.Consumption/budgets/read",
+    "Microsoft.Consumption/budgets/write",
+    "Microsoft.Consumption/budgets/delete",
+    "Microsoft.Authorization/policyDefinitions/*",
+    "Microsoft.Authorization/policySetDefinitions/*",
+    "Microsoft.Authorization/policyAssignments/*",
+    "Microsoft.Authorization/roleAssignments/read",
+    "Microsoft.Authorization/roleAssignments/write",
+    "Microsoft.Authorization/roleAssignments/delete",
+    "Microsoft.Authorization/locks/*",
+    "Microsoft.PolicyInsights/remediations/*"
+  ],
+  "dataActions": [],
+  "notes": [
+    "This is an auditable design artifact, not a complete Azure custom role definition.",
+    "A tenant owner must verify provider operations and constrain assignable scope before use.",
+    "Routine preview should not retain role-assignment write permission."
+  ]
+}

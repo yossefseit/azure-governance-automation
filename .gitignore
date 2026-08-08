@@ -1,0 +1,13 @@
+.DS_Store
+.idea/
+.vscode/
+*.code-workspace
+*.local.bicepparam
+*.parameters.json
+*.tmp
+*.log
+bin/
+dist/
+coverage/
+node_modules/
+evidence/private/

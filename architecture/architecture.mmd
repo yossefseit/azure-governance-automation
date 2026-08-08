@@ -1,0 +1,45 @@
+flowchart TB
+  engineer[Engineer or protected GitHub environment]
+  offline[Offline CI\nBicep build · tests · static checks]
+  oidc[Short-lived OIDC token\noptional authenticated path]
+
+  engineer --> offline
+  engineer -. explicit approval .-> oidc
+
+  subgraph subscription[Personally owned Azure subscription]
+    deployment[Subscription-scope Bicep deployment]
+    budget[Monthly subscription budget\nactual 80% · forecast 100%]
+
+    subgraph policy[Policy baseline]
+      initiative[Custom initiative]
+      tags[Required RG tags\nAudit by default]
+      locations[Allowed locations\nAudit by default]
+      inherit[Inherit missing resource tags\nDisabled by default]
+      assignment[Subscription assignment\nidentity only with Modify]
+      role[Tag Contributor\nonly with Modify]
+      remediation[Bounded remediation tasks\ndisabled by default]
+
+      initiative --> tags
+      initiative --> locations
+      initiative --> inherit
+      assignment --> initiative
+      assignment --> role
+      role --> remediation
+      remediation --> inherit
+    end
+
+    subgraph governanceRg[Governance resource group]
+      actionGroup[Azure Monitor action group\nno receiver in committed example]
+      reader[Optional Entra group Reader\nresource-group scope only]
+      lock[CanNotDelete lock]
+    end
+
+    deployment --> budget
+    deployment --> assignment
+    deployment --> actionGroup
+    deployment --> reader
+    deployment --> lock
+    budget --> actionGroup
+  end
+
+  oidc -. validate · what-if · deploy .-> deployment

@@ -1,0 +1,70 @@
+name: Validate governance lab
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Offline infrastructure validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pinned Bicep CLI
+        run: az bicep install --version v0.46.1
+
+      - name: Show tool versions
+        run: |
+          az bicep version
+          shellcheck --version
+          python3 --version
+          pwsh --version
+
+      - name: Run dependency-light validation
+        run: bash tests/run.sh
+
+      - name: Analyze PowerShell
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Force
+          $results = 'scripts', 'tests' | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_ -Recurse -Severity Error,Warning
+          }
+          if ($results) { $results | Format-Table; exit 1 }
+
+      - name: Lint Markdown
+        run: npx --yes markdownlint-cli2@0.23.2 "**/*.md"
+
+      - name: Check spelling
+        run: npx --yes cspell@10.0.1 --config .cspell.json "**/*.{md,bicep,bicepparam,py,ps1,sh,yml,json}"
+
+      - name: Check Markdown links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        with:
+          args: --no-progress --accept 200,206,429 README.md docs/*.md evidence/*.md
+          fail: true
+
+      - name: Scan repository for secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

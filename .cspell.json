@@ -1,0 +1,42 @@
+{
+  "version": "0.2",
+  "language": "en,en-GB,en-US",
+  "useGitignore": true,
+  "ignorePaths": [
+    ".git/**",
+    "architecture/architecture.svg",
+    "dist/**"
+  ],
+  "words": [
+    "aglab",
+    "adminusername",
+    "bicepconfig",
+    "bicepparam",
+    "cloudlab",
+    "costcenter",
+    "dependson",
+    "devops",
+    "endswith",
+    "gitleaks",
+    "guardrails",
+    "healthcheck",
+    "idempotency",
+    "LASTEXITCODE",
+    "locationless",
+    "lychee",
+    "markdownlint",
+    "northeurope",
+    "PSScriptAnalyzer",
+    "pscustomobject",
+    "remediations",
+    "resourcegroup",
+    "retag",
+    "roledefinitions",
+    "runbook",
+    "shellcheck",
+    "unredacted",
+    "westeurope",
+    "whatif",
+    "Yossef"
+  ]
+}
